@@ -12,7 +12,7 @@ Este projeto é um shell simplificado escrito em C, que oferece funcionalidades 
 Para compilar o shell, você precisará de um compilador de C, como gcc ou clang. Aqui estão os passos para compilar usando gcc:
 
 ```bash
-gcc -o myshell myshell.c
+gcc -o shell shell.c
 ```
 Isso compilará o código-fonte myshell.c em um executável chamado myshell.
 
@@ -20,7 +20,7 @@ Isso compilará o código-fonte myshell.c em um executável chamado myshell.
 Após compilar o programa, você pode executá-lo diretamente do terminal:
 
 ```bash
-./myshell
+./shell
 ```
 Isso abrirá a interface do shell, onde você pode digitar comandos. Por exemplo:
 
