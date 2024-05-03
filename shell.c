@@ -6,6 +6,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+
+#define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_RESET "\033[0m"
+#define ANSI_COLOR_BLUE "\x1B[01;36m"
+
 #define MAX_LENGTH 1024  // Definindo o comprimento máximo para os comandos
 #define MAX_PATHS 64     // Número máximo de caminhos no vetor de busca
 #define DELIMS " \t\r\n" // Delimitadores para separar os tokens dos comandos
@@ -15,7 +20,7 @@ int num_paths = 0;             // Contador para o número de caminhos registrado
 
 void cd(char *path) {
     if (chdir(path) != 0) {
-        perror("cd failed");
+        perror("ERRROR: cd failed");
     }
 }
 
@@ -50,7 +55,7 @@ void fake_cat(int argc, char *argv[]) {
     const char *filepath = argv[1];
     FILE *file = fopen(filepath, "r");
     if (!file) {
-        perror("File opening failed");
+        perror(ANSI_COLOR_RED "ERROR" ANSI_COLOR_RESET ": File opening failed");
         return;
     }
 
@@ -59,7 +64,7 @@ void fake_cat(int argc, char *argv[]) {
     if (redirect) {
         int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
-            perror("Failed to open output file");
+            perror(ANSI_COLOR_RED "ERROR" ANSI_COLOR_RESET ": Failed to open output file");
             fclose(file);
             return;
         }
@@ -99,7 +104,7 @@ void fake_ls(int argc, char *argv[]) {
         }
         closedir(d);
     } else {
-        perror("Failed to open directory");
+        perror(ANSI_COLOR_RED "ERROR" ANSI_COLOR_RESET ": Failed to open directory");
     }
 }
 
@@ -121,16 +126,20 @@ void process_command(char *cmd) {
         if (argc > 1) {
             cd(args[1]);
         } else {
-            fprintf(stderr, "cd: argument required\n");
+            fprintf(stderr, ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET " cd: argument required\n");
         }
     } else if (strcmp(args[0], "path") == 0) {
         set_path(&args[1], argc - 1);
-    } else if (strcmp(args[0], "cat") == 0 && argc > 1) {
-        fake_cat(argc, args);
+    } else if (strcmp(args[0], "cat") == 0) {
+        if (argc > 1) {
+            fake_cat(argc, args);
+        } else {
+            fprintf(stderr, ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET " cat: argument required\n");
+        }
     } else if (strcmp(args[0], "ls") == 0) {
         fake_ls(argc, args);
     } else {
-        fprintf(stderr, "Unsupported command: %s\n", args[0]);
+        fprintf(stderr, ANSI_COLOR_RED "ERROR " ANSI_COLOR_RESET ": Unsupported command: %s\n", args[0]);
     }
 }
 
@@ -142,7 +151,7 @@ int main() {
     num_paths = 1;
 
     while (1) {
-        printf("myshell> ");
+        printf(ANSI_COLOR_BLUE "myshell> "ANSI_COLOR_RESET);
         if (!fgets(line, sizeof(line), stdin)) break;
         process_command(line);
     }
