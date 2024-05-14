@@ -164,6 +164,27 @@ void process_command(char *cmd) {
     }
 }
 
+void execute_commands_concurrently(char *cmd_line) {
+    char *commands[MAX_PATHS];
+    int n_commands = 0;
+    char *token = strtok(cmd_line, "&");
+
+    while (token != NULL && n_commands < MAX_PATHS) {
+        commands[n_commands++] = strdup(token);
+        token = strtok(NULL, "&");
+    }
+
+    for (int i = 0; i < n_commands; i++) {
+        process_command(commands[i]);
+        free(commands[i]);  // Liberar a memória alocada com strdup
+    }
+
+    for (int i = 0; i < n_commands; i++) {
+        wait(NULL);  // Esperar todos os processos filhos terminarem
+    }
+}
+
+
 int main() {
     char line[MAX_LENGTH];
     char *initialPath = "/bin";  // Caminho inicial para a busca de executáveis
