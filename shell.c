@@ -4,19 +4,21 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 
+#include "cat.h"
+#include "ls.h"
 
 #define ANSI_COLOR_RED "\x1b[31m"
 #define ANSI_COLOR_RESET "\033[0m"
 #define ANSI_COLOR_BLUE "\x1B[01;36m"
 
 #define MAX_LENGTH 1024  // Definindo o comprimento máximo para os comandos
-#define MAX_PATHS 64     // Número máximo de caminhos no vetor de busca
 #define DELIMS " \t\r\n" // Delimitadores para separar os tokens dos comandos
 
-char *search_paths[MAX_PATHS]; // Vetor para armazenar os caminhos de busca de executáveis
-int num_paths = 0;             // Contador para o número de caminhos registrados
+char **search_paths = NULL; // Vetor para armazenar os caminhos de busca de executáveis
+int num_paths = 0;           // Contador para o número de caminhos registrados
 
 void cd(char *path) {
     if (chdir(path) != 0) {
@@ -25,14 +27,35 @@ void cd(char *path) {
 }
 
 void append_path(char *path) {
-    if (num_paths < MAX_PATHS) {
-        if (num_paths > 0) {
-            strcat(search_paths[num_paths - 1], ":");
-        }
-        search_paths[num_paths++] = strdup(path);
+    if (num_paths == 0) {
+        search_paths = malloc(sizeof(char *));
     } else {
-        fprintf(stderr, "Limite máximo de caminhos alcançado. Não é possível adicionar mais caminhos.\n");
+        search_paths = realloc(search_paths, (num_paths + 1) * sizeof(char *));
     }
+
+    if (!search_paths) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (num_paths > 0) {
+        char *new_path = malloc(strlen(path) + 2); // Allocate space for ":" and null terminator
+        if (!new_path) {
+            fprintf(stderr, "Memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
+        sprintf(new_path, "%s:", path);
+        search_paths[num_paths] = new_path;
+    } else {
+        search_paths[num_paths] = strdup(path);
+    }
+
+    if (!search_paths[num_paths]) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    num_paths++;
 }
 
 void print_path() {
@@ -48,92 +71,33 @@ void print_path() {
     printf("\n");
 }
 
-// Implementação simplificada do comando 'cat'
-void fake_cat(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: cat <file> [> outfile]\n");
-        return;
-    }
-
-    // Determinar se há redirecionamento
-    int redirect = 0;
-    char *output_file = NULL;
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], ">") == 0 && (i + 1) < argc) {
-            redirect = 1;
-            output_file = argv[i + 1];
-            break;
-        }
-    }
-
-    const char *filepath = argv[1];
-    FILE *file = fopen(filepath, "r");
-    if (!file) {
-        perror(ANSI_COLOR_RED "ERROR" ANSI_COLOR_RESET ": File opening failed");
-        return;
-    }
-
-    // Configurar redirecionamento, se necessário
-    int original_stdout = dup(STDOUT_FILENO);
-    if (redirect) {
-        int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        if (fd == -1) {
-            perror(ANSI_COLOR_RED "ERROR" ANSI_COLOR_RESET ": Failed to open output file");
-            fclose(file);
-            return;
-        }
-        dup2(fd, STDOUT_FILENO);
-        close(fd);
-    }
-
-    char buffer[1024];
-    while (fgets(buffer, sizeof(buffer), file)) {
-        printf("%s", buffer);
-    }
-
-    fclose(file);
-
-    // Restaurar saída padrão, se necessário
-    if (redirect) {
-        dup2(original_stdout, STDOUT_FILENO);
-    }
-    close(original_stdout);
-}
-// Implementação simplificada do comando 'ls'
-void fake_ls(int argc, char *argv[]) {
-    DIR *d;
-    struct dirent *dir;
-    d = opendir(".");
-    if (d) {
-        while ((dir = readdir(d)) != NULL) {
-            if (argc == 1 || (argc > 1 && strcmp(argv[1], "-a") == 0) || dir->d_name[0] != '.') {
-                if (argc > 1 && strcmp(argv[1], "-l") == 0) {
-                    struct stat st;
-                    stat(dir->d_name, &st);
-                    printf("%ld %s\n", st.st_size, dir->d_name);
-                } else {
-                    printf("%s\n", dir->d_name);
-                }
-            }
-        }
-        closedir(d);
-    } else {
-        perror(ANSI_COLOR_RED "ERROR" ANSI_COLOR_RESET ": Failed to open directory");
-    }
-}
-
 void process_command(char *cmd) {
-    char *args[MAX_PATHS];
+    char **args = NULL;
     int argc = 0;
     char *token = strtok(cmd, DELIMS);
 
-    while (token != NULL && argc < MAX_PATHS) {
-        args[argc++] = token;
+    args = malloc(MAX_LENGTH * sizeof(char *));
+    if (!args) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    while (token != NULL) {
+        args[argc] = strdup(token);
+        if (!args[argc]) {
+            fprintf(stderr, "Memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
+        argc++;
         token = strtok(NULL, DELIMS);
     }
     args[argc] = NULL;
 
-    if (args[0] == NULL) return; // Comando vazio
+    if (args[0] == NULL) {
+        free(args);
+        return;
+    }
+
     if (strcmp(args[0], "exit") == 0) {
         exit(0);
     } else if (strcmp(args[0], "cd") == 0) {
@@ -161,15 +125,31 @@ void process_command(char *cmd) {
     } else {
         fprintf(stderr, ANSI_COLOR_RED "ERROR " ANSI_COLOR_RESET ": Unsupported command: %s\n", args[0]);
     }
+
+    for (int i = 0; i < argc; i++) {
+        free(args[i]);
+    }
+    free(args);
 }
 
 void execute_commands_concurrently(char *cmd_line) {
-    char *commands[MAX_PATHS];
+    char **commands = NULL;
     int n_commands = 0;
     char *token = strtok(cmd_line, "&");
 
-    while (token != NULL && n_commands < MAX_PATHS) {
-        commands[n_commands++] = strdup(token);
+    commands = malloc(MAX_LENGTH * sizeof(char *));
+    if (!commands) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    while (token != NULL) {
+        commands[n_commands] = strdup(token);
+        if (!commands[n_commands]) {
+            fprintf(stderr, "Memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
+        n_commands++;
         token = strtok(NULL, "&");
     }
 
@@ -178,17 +158,14 @@ void execute_commands_concurrently(char *cmd_line) {
         free(commands[i]);  // Liberar a memória alocada com strdup
     }
 
-    for (int i = 0; i < n_commands; i++) {
-        wait(NULL);  // Esperar todos os processos filhos terminarem
-    }
+    free(commands);
 }
 
 int main() {
     char line[MAX_LENGTH];
-    char *initialPath = "/bin";
+    char *initialPath = "/bin:"; // /usr/bin:/usr/local/bin
 
-    search_paths[0] = strdup(initialPath);
-    num_paths = 1;
+    append_path(initialPath);
 
     while (1) {
         printf(ANSI_COLOR_BLUE "myshell> "ANSI_COLOR_RESET);
@@ -196,14 +173,15 @@ int main() {
         process_command(line);
     }
 
-     if (strchr(line, '&') != NULL) {
-            // Executa comandos em paralelo se houver '&' na linha de comando
-            execute_commands_concurrently(line);
+    if (strchr(line, '&') != NULL) {
+        // Executa comandos em paralelo se houver '&' na linha de comando
+        execute_commands_concurrently(line);
     }
 
     for (int i = 0; i < num_paths; i++) {
         free(search_paths[i]);
     }
+    free(search_paths);
 
     return 0;
 }
