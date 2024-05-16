@@ -168,14 +168,26 @@ int main() {
     append_path(initialPath);
 
     while (1) {
-        printf(ANSI_COLOR_BLUE "myshell> "ANSI_COLOR_RESET);
+        printf(ANSI_COLOR_BLUE "myshell> " ANSI_COLOR_RESET);
         if (!fgets(line, sizeof(line), stdin)) break;
-        process_command(line);
-    }
-
-    if (strchr(line, '&') != NULL) {
-        // Executa comandos em paralelo se houver '&' na linha de comando
-        execute_commands_concurrently(line);
+        
+        pid_t pid = fork();
+        if (pid < 0) {
+            fprintf(stderr, "Failed to fork\n");
+            exit(EXIT_FAILURE);
+        } else if (pid == 0) {
+            // Processo filho
+            if (strchr(line, '&') != NULL) {
+                // Executa comandos em paralelo se houver '&' na linha de comando
+                execute_commands_concurrently(line);
+            } else {
+                process_command(line);
+            }
+            exit(EXIT_SUCCESS);
+        } else {
+            // Processo pai
+            waitpid(pid, NULL, 0);
+        }
     }
 
     for (int i = 0; i < num_paths; i++) {
