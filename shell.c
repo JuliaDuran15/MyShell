@@ -99,6 +99,10 @@ void process_command(char *cmd) {
     }
 
     if (strcmp(args[0], "exit") == 0) {
+        for (int i = 0; i < num_paths; i++) {
+                free(search_paths[i]);
+            }
+        free(search_paths);
         exit(0);
     } else if (strcmp(args[0], "cd") == 0) {
         if (argc > 1) {
@@ -189,11 +193,5 @@ int main() {
             waitpid(pid, NULL, 0);
         }
     }
-
-    for (int i = 0; i < num_paths; i++) {
-        free(search_paths[i]);
-    }
-    free(search_paths);
-
     return 0;
 }
