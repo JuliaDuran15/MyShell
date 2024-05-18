@@ -4,21 +4,21 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 
-#include "cat.h"
-#include "ls.h"
 
 #define ANSI_COLOR_RED "\x1b[31m"
 #define ANSI_COLOR_RESET "\033[0m"
 #define ANSI_COLOR_BLUE "\x1B[01;36m"
 
 #define MAX_LENGTH 1024  // Definindo o comprimento máximo para os comandos
+#define MAX_PATHS 64     // Número máximo de caminhos no vetor de busca
 #define DELIMS " \t\r\n" // Delimitadores para separar os tokens dos comandos
 
-char **search_paths = NULL; // Vetor para armazenar os caminhos de busca de executáveis
-int num_paths = 0;           // Contador para o número de caminhos registrados
+char **search_paths; // Vetor para armazenar os caminhos de busca de executáveis
+int num_paths = 0;   // Contador para o número de caminhos registrados
+volatile sig_atomic_t exit_flag = 0;
 
 void cd(char *path) {
     if (chdir(path) != 0) {
@@ -27,35 +27,14 @@ void cd(char *path) {
 }
 
 void append_path(char *path) {
-    if (num_paths == 0) {
-        search_paths = malloc(sizeof(char *));
-    } else {
-        search_paths = realloc(search_paths, (num_paths + 1) * sizeof(char *));
-    }
-
-    if (!search_paths) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (num_paths > 0) {
-        char *new_path = malloc(strlen(path) + 2); // Allocate space for ":" and null terminator
-        if (!new_path) {
-            fprintf(stderr, "Memory allocation failed\n");
-            exit(EXIT_FAILURE);
+    if (num_paths < MAX_PATHS) {
+        if (num_paths > 0) {
+            strcat(search_paths[num_paths - 1], ":");
         }
-        sprintf(new_path, "%s:", path);
-        search_paths[num_paths] = new_path;
+        search_paths[num_paths++] = strdup(path);
     } else {
-        search_paths[num_paths] = strdup(path);
+        fprintf(stderr, "Limite máximo de caminhos alcançado. Não é possível adicionar mais caminhos.\n");
     }
-
-    if (!search_paths[num_paths]) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    num_paths++;
 }
 
 void print_path() {
@@ -71,39 +50,95 @@ void print_path() {
     printf("\n");
 }
 
+// Implementação simplificada do comando 'cat'
+void fake_cat(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: cat <file> [> outfile]\n");
+        return;
+    }
+
+    // Determinar se há redirecionamento
+    int redirect = 0;
+    char *output_file = NULL;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], ">") == 0 && (i + 1) < argc) {
+            redirect = 1;
+            output_file = argv[i + 1];
+            break;
+        }
+    }
+
+    const char *filepath = argv[1];
+    FILE *file = fopen(filepath, "r");
+    if (!file) {
+        perror(ANSI_COLOR_RED "ERROR" ANSI_COLOR_RESET ": File opening failed");
+        return;
+    }
+
+    // Configurar redirecionamento, se necessário
+    int original_stdout = dup(STDOUT_FILENO);
+    if (redirect) {
+        int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd == -1) {
+            perror(ANSI_COLOR_RED "ERROR" ANSI_COLOR_RESET ": Failed to open output file");
+            fclose(file);
+            return;
+        }
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
+    }
+
+    char buffer[1024];
+    while (fgets(buffer, sizeof(buffer), file)) {
+        printf("%s", buffer);
+    }
+
+    fclose(file);
+
+    // Restaurar saída padrão, se necessário
+    if (redirect) {
+        dup2(original_stdout, STDOUT_FILENO);
+    }
+    close(original_stdout);
+}
+
+// Implementação simplificada do comando 'ls'
+void fake_ls(int argc, char *argv[]) {
+    DIR *d;
+    struct dirent *dir;
+    d = opendir(".");
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            if (argc == 1 || (argc > 1 && strcmp(argv[1], "-a") == 0) || dir->d_name[0] != '.') {
+                if (argc > 1 && strcmp(argv[1], "-l") == 0) {
+                    struct stat st;
+                    stat(dir->d_name, &st);
+                    printf("%ld %s\n", st.st_size, dir->d_name);
+                } else {
+                    printf("%s\n", dir->d_name);
+                }
+            }
+        }
+        closedir(d);
+    } else {
+        perror(ANSI_COLOR_RED "ERROR" ANSI_COLOR_RESET ": Failed to open directory");
+    }
+}
+
 void process_command(char *cmd) {
-    char **args = NULL;
+    char **args = malloc(MAX_PATHS * sizeof(char *));
     int argc = 0;
     char *token = strtok(cmd, DELIMS);
 
-    args = malloc(MAX_LENGTH * sizeof(char *));
-    if (!args) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    while (token != NULL) {
-        args[argc] = strdup(token);
-        if (!args[argc]) {
-            fprintf(stderr, "Memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
-        argc++;
+    while (token != NULL && argc < MAX_PATHS) {
+        args[argc++] = strdup(token);
         token = strtok(NULL, DELIMS);
     }
     args[argc] = NULL;
 
-    if (args[0] == NULL) {
-        free(args);
-        return;
-    }
-
+    if (args[0] == NULL) return; // Comando vazio
     if (strcmp(args[0], "exit") == 0) {
-        for (int i = 0; i < num_paths; i++) {
-                free(search_paths[i]);
-            }
-        free(search_paths);
-        exit(0);
+        exit_flag = 1; // set exit flag
     } else if (strcmp(args[0], "cd") == 0) {
         if (argc > 1) {
             cd(args[1]);
@@ -137,23 +172,12 @@ void process_command(char *cmd) {
 }
 
 void execute_commands_concurrently(char *cmd_line) {
-    char **commands = NULL;
+    char **commands = malloc(MAX_PATHS * sizeof(char *));
     int n_commands = 0;
     char *token = strtok(cmd_line, "&");
 
-    commands = malloc(MAX_LENGTH * sizeof(char *));
-    if (!commands) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    while (token != NULL) {
-        commands[n_commands] = strdup(token);
-        if (!commands[n_commands]) {
-            fprintf(stderr, "Memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
-        n_commands++;
+    while (token != NULL && n_commands < MAX_PATHS) {
+        commands[n_commands++] = strdup(token);
         token = strtok(NULL, "&");
     }
 
@@ -167,31 +191,42 @@ void execute_commands_concurrently(char *cmd_line) {
 
 int main() {
     char line[MAX_LENGTH];
-    char *initialPath = "/bin:"; // /usr/bin:/usr/local/bin
+    char *initialPath = "/bin";
 
-    append_path(initialPath);
+    search_paths = malloc(MAX_PATHS * sizeof(char *));
+    search_paths[0] = strdup(initialPath);
+    num_paths = 1;
 
-    while (1) {
+    while (exit_flag == 0) {
         printf(ANSI_COLOR_BLUE "myshell> " ANSI_COLOR_RESET);
         if (!fgets(line, sizeof(line), stdin)) break;
-        
-        pid_t pid = fork();
+
+        pid_t pid;
+        pid = fork();
         if (pid < 0) {
-            fprintf(stderr, "Failed to fork\n");
-            exit(EXIT_FAILURE);
-        } else if (pid == 0) {
-            // Processo filho
-            if (strchr(line, '&') != NULL) {
-                // Executa comandos em paralelo se houver '&' na linha de comando
-                execute_commands_concurrently(line);
-            } else {
-                process_command(line);
-            }
-            exit(EXIT_SUCCESS);
-        } else {
-            // Processo pai
-            waitpid(pid, NULL, 0);
+            perror("fork");
+            exit(1);
+        }
+
+        if (pid == 0) { // child process
+            process_command(line);
+            exit(0);
+        } else { // parent process
+            // wait for the child process to finish
+            wait(NULL);
         }
     }
+    // Não roda comandos em paralelo, fora do while
+
+    // if (strchr(line, '&') != NULL) {
+    //     // Executa comandos em paralelo se houver '&' na linha de comando
+    //     execute_commands_concurrently(line);
+    // }
+
+    for (int i = 0; i < num_paths; i++) {
+        free(search_paths[i]);
+    }
+    free(search_paths);
+    
     return 0;
 }
