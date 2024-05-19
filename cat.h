@@ -1,13 +1,18 @@
-// cat.c
 #ifndef CAT_H
 #define CAT_H
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
 
-void fake_cat(int argc, char *argv[]) {
-    if (argc < 2) {
+#define MAX_BUFFER_SIZE 1024
+#define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_RESET "\033[0m"
+
+void clone_cat(char **args) {
+    if (args[1] == NULL) {
         fprintf(stderr, "Usage: cat <file> [> outfile]\n");
         return;
     }
@@ -15,18 +20,18 @@ void fake_cat(int argc, char *argv[]) {
     // Determine if there is redirection
     int redirect = 0;
     char *output_file = NULL;
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], ">") == 0 && (i + 1) < argc) {
+    for (int i = 1; args[i] != NULL; i++) {
+        if (strcmp(args[i], ">") == 0 && (i + 1) < MAX_BUFFER_SIZE) {
             redirect = 1;
-            output_file = argv[i + 1];
+            output_file = args[i + 1];
             break;
         }
     }
 
-    const char *filepath = argv[1];
+    const char *filepath = args[1];
     FILE *file = fopen(filepath, "r");
     if (!file) {
-        perror("ERROR: File opening failed");
+        perror(ANSI_COLOR_RED "ERROR: " ANSI_COLOR_RESET " File opening failed");
         return;
     }
 
@@ -35,7 +40,7 @@ void fake_cat(int argc, char *argv[]) {
     if (redirect) {
         int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
-            perror("ERROR: Failed to open output file");
+            perror(ANSI_COLOR_RED "ERROR: " ANSI_COLOR_RESET "Failed to open output file");
             fclose(file);
             return;
         }
@@ -43,7 +48,7 @@ void fake_cat(int argc, char *argv[]) {
         close(fd);
     }
 
-    char buffer[1024];
+    char buffer[MAX_BUFFER_SIZE];
     while (fgets(buffer, sizeof(buffer), file)) {
         printf("%s", buffer);
     }
@@ -57,5 +62,4 @@ void fake_cat(int argc, char *argv[]) {
     close(original_stdout);
 }
 
-#endif // CAT_H 
-// Path: MyShell/ls.h
+#endif // CAT_H
