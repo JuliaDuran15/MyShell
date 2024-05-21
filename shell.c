@@ -30,11 +30,22 @@ void print_path();
 #include "cat.h"
 #include "ls.h"
 
-int main() {
+int main(int argc, char *argv[]) {
     char input[MAX_BUFFER_SIZE];
     char *args[MAX_ARGS];
     char *token;
     int interactive = 1;
+    FILE *input_file = stdin; // Default input is standard input
+
+    // Check for a batch file argument
+    if (argc > 1) {
+        input_file = fopen(argv[1], "r");
+        if (!input_file) {
+            fprintf(stderr, ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "Could not open file: %s\n", argv[1]);
+            exit(EXIT_FAILURE);
+        }
+        interactive = 0;
+    }
 
     // Set default path
     append_path("/bin");
@@ -45,7 +56,7 @@ int main() {
             fflush(stdout);
         }
 
-        if (fgets(input, MAX_BUFFER_SIZE, stdin) == NULL) {
+        if (fgets(input, MAX_BUFFER_SIZE, input_file) == NULL) {
             break;
         }
 
@@ -68,8 +79,13 @@ int main() {
         handle_internal_commands(args[0], args);
     }
 
+    if (!interactive) {
+        fclose(input_file);
+    }
+
     return 0;
 }
+
 
 void handle_internal_commands(char *cmd, char **args) {
     if (strcmp(cmd, "exit") == 0) {
@@ -127,7 +143,7 @@ void append_path(char *path) {
             fprintf(stderr, ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "Memory allocation failed\n");
             exit(EXIT_FAILURE);
         }
-        sprintf(new_path, "%s", path);
+        sprintf(new_path, "%s:", path);
         search_paths[num_paths] = new_path;
     } else {
         search_paths[num_paths] = strdup(path);
@@ -149,7 +165,7 @@ void print_path() {
 
     printf("Caminho completo de busca de executáveis: ");
     for (int i = 0; i < num_paths; i++) {
-        printf("%s;", search_paths[i]);
+        printf("%s", search_paths[i]);
     }
     printf("\n");
 }
