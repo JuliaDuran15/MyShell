@@ -1,4 +1,0 @@
-ls -l
-cat README.md 
-cd .. 
-ls -a
