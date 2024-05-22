@@ -28,7 +28,7 @@ Isso compilará o código-fonte myshell.c em um executável chamado myshell.
 Após compilar o programa, você pode executá-lo diretamente do terminal para o teste do arquivo batch:
 
 ```bash
-./shell batch_test.txt
+./shell batch_test.batch
 ```
 E você pode executá-lo diretamente do terminal:
 
