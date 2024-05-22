@@ -12,6 +12,14 @@ Este projeto é um shell simplificado escrito em C, que oferece funcionalidades 
 Para compilar o shell, você precisará de um compilador de C, como gcc ou clang. Aqui estão os passos para compilar usando gcc:
 
 ```bash
+git clone https://github.com/JuliaDuran15/MyShell (pasta_compartilhada)
+```
+```bash
+cd (pasta_compartilhada)
+cd MyShell
+```
+
+```bash
 gcc -o shell shell.c
 ```
 Isso compilará o código-fonte myshell.c em um executável chamado myshell.
