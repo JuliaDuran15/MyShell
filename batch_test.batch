@@ -1,0 +1,8 @@
+path 
+ls 
+cat README.md 
+cd .. 
+ls -a 
+cd MyShell 
+ls -l 
+cat README.md > output_from_cat.txt 
