@@ -24,6 +24,8 @@ void handle_path(char **args);
 void handle_exit();
 void redirect_output(char **args);
 
+void handle_clear();
+
 void append_path(char *path);
 void print_path();
 
@@ -48,7 +50,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Set default path
-    append_path("/bin");
+    append_path("/bin:");
 
     while (1) {
         if (interactive) {
@@ -86,6 +88,13 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+void handle_clear() {
+    #ifdef _WIN32
+    system("cls");
+    #else
+    system("clear");
+    #endif
+}
 
 void handle_internal_commands(char *cmd, char **args) {
     if (strcmp(cmd, "exit") == 0) {
@@ -98,6 +107,8 @@ void handle_internal_commands(char *cmd, char **args) {
         clone_cat(args);
     } else if (strcmp(cmd, "ls") == 0) {
         clone_ls(args);
+    } else if (strcmp(cmd, "clear") == 0) {
+        handle_clear();
     } else {
         execute_command(cmd, args);
     }
