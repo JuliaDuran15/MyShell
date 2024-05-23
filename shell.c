@@ -154,7 +154,7 @@ void append_path(char *path) {
             fprintf(stderr, ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "Memory allocation failed\n");
             exit(EXIT_FAILURE);
         }
-        sprintf(new_path, "%s:", path);
+        sprintf(new_path, "%s", path);
         search_paths[num_paths] = new_path;
     } else {
         search_paths[num_paths] = strdup(path);
