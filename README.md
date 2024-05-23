@@ -1,3 +1,4 @@
+-----------------------------------------------------------------------------------------------------------------------------
 # Mini Shell em C
 Este projeto é um shell simplificado escrito em C, que oferece funcionalidades básicas de linha de comando, incluindo execução de comandos internos como cd e path, além de simulações dos comandos Unix cat e ls com suporte a redirecionamento de saída.
 ### OBS: Deve ter um ambiente Unix-like (VM)
@@ -57,3 +58,4 @@ myshell> exit
 ```
 ## Dependências 
 Este programa não requer bibliotecas externas, mas você deve ter um ambiente Unix-like para que as chamadas de sistema funcionem conforme esperado.
+-----------------------------------------------------------------------------------------------------------------------------
