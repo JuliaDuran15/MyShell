@@ -29,8 +29,6 @@ void handle_clear();
 void append_path(char *path);
 void print_path();
 
-#include "cat.h"
-#include "ls.h"
 
 int main(int argc, char *argv[]) {
     char input[MAX_BUFFER_SIZE];
@@ -49,8 +47,6 @@ int main(int argc, char *argv[]) {
         interactive = 0;
     }
 
-    // Set default path
-    append_path("/bin:");
 
     while (1) {
         if (interactive) {
@@ -103,11 +99,7 @@ void handle_internal_commands(char *cmd, char **args) {
         handle_cd(args);
     } else if (strcmp(cmd, "path") == 0) {
         handle_path(args);
-    } else if (strcmp(cmd, "cat") == 0) {
-        clone_cat(args);
-    } else if (strcmp(cmd, "ls") == 0) {
-        clone_ls(args);
-    } else if (strcmp(cmd, "clear") == 0) {
+    }  else if (strcmp(cmd, "clear") == 0) {
         handle_clear();
     } else {
         execute_command(cmd, args);
@@ -181,23 +173,29 @@ void print_path() {
     printf("\n");
 }
 
-
 void execute_command(char *cmd, char **args) {
     pid_t pid = fork();
     if (pid == 0) {
         // Child process
+        int executed = 0;
         for (int i = 0; i < num_paths; i++) {
             char exec_path[MAX_BUFFER_SIZE];
             snprintf(exec_path, sizeof(exec_path), "%s/%s", search_paths[i], cmd);
+            // Tenta executar o comando no caminho especificado
             execv(exec_path, args);
         }
-        fprintf(stderr, ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "Command not found: %s\n", cmd);
-        exit(1);
+        // Se nenhum dos caminhos foi bem-sucedido, imprime erro
+        if (!executed) {
+            fprintf(stderr, ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "Command not found: %s\n", cmd);
+            exit(EXIT_FAILURE);
+        }
     } else if (pid > 0) {
-        // Parent process
+        // Parent process waits for the child to complete
         int status;
         waitpid(pid, &status, 0);
-        printf("Return status: %d\n", WEXITSTATUS(status));
+        if (WIFEXITED(status)) {
+            printf("Return status: %d\n", WEXITSTATUS(status));
+        }
     } else {
         // Fork failed
         perror("fork");
