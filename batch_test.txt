@@ -1,3 +1,4 @@
+path home/usr_vm/pasta_comp/MyShell/externos 
 ls -l
 cat README.md 
 cd .. 
