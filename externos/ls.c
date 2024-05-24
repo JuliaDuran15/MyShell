@@ -8,6 +8,8 @@
 #include <time.h>
 #include <string.h>
 
+#define ANSI_COLOR_GREEN "\x1B[01;36m"
+
 int main(int argc, char *argv[]) {
     int long_format = 0;
     int all_files = 0;
@@ -67,7 +69,7 @@ int main(int argc, char *argv[]) {
             printf("%s  ", entry->d_name);
         }
     } else {
-        perror("stat failed");
+        perror("ERR- stat failed");
     }
 }
 printf("\n");

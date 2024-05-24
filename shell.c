@@ -146,7 +146,7 @@ void append_path(char *path) {
             fprintf(stderr, ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "Memory allocation failed\n");
             exit(EXIT_FAILURE);
         }
-        sprintf(new_path, "%s:", path);
+        sprintf(new_path, "%s", path);
         search_paths[num_paths] = new_path;
     } else {
         search_paths[num_paths] = strdup(path);
@@ -168,7 +168,7 @@ void print_path() {
 
     printf("Caminho completo de busca de executáveis: ");
     for (int i = 0; i < num_paths; i++) {
-        printf("%s", search_paths[i]);
+        printf("%s ;", search_paths[i]);
     }
     printf("\n");
 }

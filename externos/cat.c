@@ -10,7 +10,7 @@
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <file> [> outfile]\n", argv[0]);
+        fprintf(stderr, "Forma de utilizar: %s <file> [> outfile]\n", argv[0]);
         return 1;
     }
 

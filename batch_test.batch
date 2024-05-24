@@ -1,0 +1,5 @@
+path /home/julia/labs/ProjetaoShell/MyShell/externos 
+ls -l
+cat README.md 
+cd .. 
+ls -a
