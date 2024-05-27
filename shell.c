@@ -29,8 +29,6 @@ void handle_clear();
 void append_path(char *path);
 void print_path();
 
-#include "cat.h"
-#include "ls.h"
 
 int main(int argc, char *argv[]) {
     char input[MAX_BUFFER_SIZE];
@@ -49,8 +47,6 @@ int main(int argc, char *argv[]) {
         interactive = 0;
     }
 
-    // Set default path
-    append_path("/bin:");
 
     while (1) {
         if (interactive) {
@@ -103,11 +99,7 @@ void handle_internal_commands(char *cmd, char **args) {
         handle_cd(args);
     } else if (strcmp(cmd, "path") == 0) {
         handle_path(args);
-    } else if (strcmp(cmd, "cat") == 0) {
-        clone_cat(args);
-    } else if (strcmp(cmd, "ls") == 0) {
-        clone_ls(args);
-    } else if (strcmp(cmd, "clear") == 0) {
+    }  else if (strcmp(cmd, "clear") == 0) {
         handle_clear();
     } else {
         execute_command(cmd, args);
@@ -176,7 +168,7 @@ void print_path() {
 
     printf("Caminho completo de busca de executáveis: ");
     for (int i = 0; i < num_paths; i++) {
-        printf("%s", search_paths[i]);
+        printf("%s ;", search_paths[i]);
     }
     printf("\n");
 }
@@ -186,59 +178,96 @@ void execute_command(char *cmd, char **args) {
     pid_t pid = fork();
     if (pid == 0) {
         // Child process
-        for (int i = 0; i < num_paths; i++) {
+        int executed = 0;
+        int fd = -1; // File descriptor for redirection
+        int i;
+
+        // Check for output redirection
+        for (i = 0; args[i] != NULL; i++) {
+            if (strcmp(args[i], ">") == 0) {
+                if (args[i + 1] != NULL) {
+                    fd = open(args[i + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    if (fd == -1) {
+                        perror("open");
+                        exit(EXIT_FAILURE);
+                    }
+                    // Redirect stdout to the file
+                    if (dup2(fd, STDOUT_FILENO) == -1) {
+                        perror("dup2");
+                        exit(EXIT_FAILURE);
+                    }
+                    close(fd);
+
+                    // Remove redirection operator and file name from arguments
+                    args[i] = NULL;
+                    break;
+                } else {
+                    fprintf(stderr, "Syntax error: expected file name after '>'\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+
+        for (int j = 0; j < num_paths; j++) {
             char exec_path[MAX_BUFFER_SIZE];
-            snprintf(exec_path, sizeof(exec_path), "%s/%s", search_paths[i], cmd);
+            snprintf(exec_path, sizeof(exec_path), "%s/%s", search_paths[j], cmd);
+            // Try to execute the command in the specified path
             execv(exec_path, args);
         }
-        fprintf(stderr, ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "Command not found: %s\n", cmd);
-        exit(1);
+
+        // If none of the paths succeeded, print an error
+        if (!executed) {
+            fprintf(stderr, ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "Command not found: %s\n", cmd);
+            exit(EXIT_FAILURE);
+        }
     } else if (pid > 0) {
-        // Parent process
+        // Parent process waits for the child to complete
         int status;
         waitpid(pid, &status, 0);
-        printf("Return status: %d\n", WEXITSTATUS(status));
+        if (WIFEXITED(status)) {
+            printf("Return status: %d\n", WEXITSTATUS(status));
+        }
     } else {
         // Fork failed
         perror("fork");
     }
 }
 
-void redirect_output(char **args) {
-    int i;
-    for (i = 0; args[i] != NULL; i++) {
-        if (strcmp(args[i], ">") == 0) {
-            break;
-        }
-    }
+// void redirect_output(char **args) {
+//     int i;
+//     for (i = 0; args[i] != NULL; i++) {
+//         if (strcmp(args[i], ">") == 0) {
+//             break;
+//         }
+//     }
 
-    if (args[i] == NULL || args[i + 1] == NULL) {
-        fprintf(stderr, ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "Redirection syntax error\n");
-        return;
-    }
+//     if (args[i] == NULL || args[i + 1] == NULL) {
+//         fprintf(stderr, ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "Redirection syntax error\n");
+//         return;
+//     }
 
-    int fd = open(args[i + 1], O_CREAT | O_WRONLY | O_TRUNC, 0644);
-    if (fd == -1) {
-        perror(ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "open");
-        return;
-    }
+//     int fd = open(args[i + 1], O_CREAT | O_WRONLY | O_TRUNC, 0644);
+//     if (fd == -1) {
+//         perror(ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "open");
+//         return;
+//     }
 
-    args[i] = NULL; // Truncate args at redirection operator
-    pid_t pid = fork();
-    if (pid == 0) {
-        // Child process
-        dup2(fd, STDOUT_FILENO);
-        close(fd);
-        execvp(args[0], args);
-        perror(ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "execvp");
-        exit(1);
-    } else if (pid > 0) {
-        // Parent process
-        int status;
-        waitpid(pid, &status, 0);
-        close(fd);
-    } else {
-        // Fork failed
-        perror(ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "fork");
-    }
-}
+//     args[i] = NULL; // Truncate args at redirection operator
+//     pid_t pid = fork();
+//     if (pid == 0) {
+//         // Child process
+//         dup2(fd, STDOUT_FILENO);
+//         close(fd);
+//         execvp(args[0], args);
+//         perror(ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "execvp");
+//         exit(1);
+//     } else if (pid > 0) {
+//         // Parent process
+//         int status;
+//         waitpid(pid, &status, 0);
+//         close(fd);
+//     } else {
+//         // Fork failed
+//         perror(ANSI_COLOR_RED "ERR - " ANSI_COLOR_RESET "fork");
+//     }
+// }

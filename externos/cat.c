@@ -1,8 +1,3 @@
-
-// cat.h
-#ifndef CAT_H
-#define CAT_H
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -13,28 +8,28 @@
 #define ANSI_COLOR_RED "\x1b[31m"
 #define ANSI_COLOR_RESET "\033[0m"
 
-void clone_cat(char **args) {
-    if (args[1] == NULL) {
-        fprintf(stderr, "Usage: cat <file> [> outfile]\n");
-        return;
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Forma de utilizar: %s <file> [> outfile]\n", argv[0]);
+        return 1;
     }
 
-    // Determine if there is redirection
     int redirect = 0;
     char *output_file = NULL;
-    for (int i = 1; args[i] != NULL; i++) {
-        if (strcmp(args[i], ">") == 0 && (i + 1) < MAX_BUFFER_SIZE) {
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], ">") == 0 && (i + 1) < argc) {
             redirect = 1;
-            output_file = args[i + 1];
+            output_file = argv[i + 1];
+            argv[i] = NULL;  // Terminate argument list here for execv later
             break;
         }
     }
 
-    const char *filepath = args[1];
+    const char *filepath = argv[1];
     FILE *file = fopen(filepath, "r");
     if (!file) {
-        perror(ANSI_COLOR_RED "ERROR: " ANSI_COLOR_RESET " File opening failed");
-        return;
+        perror(ANSI_COLOR_RED "ERROR: " ANSI_COLOR_RESET "File opening failed");
+        return 1;
     }
 
     // Configure redirection, if necessary
@@ -44,7 +39,7 @@ void clone_cat(char **args) {
         if (fd == -1) {
             perror(ANSI_COLOR_RED "ERROR: " ANSI_COLOR_RESET "Failed to open output file");
             fclose(file);
-            return;
+            return 1;
         }
         dup2(fd, STDOUT_FILENO);
         close(fd);
@@ -60,8 +55,8 @@ void clone_cat(char **args) {
     // Restore standard output, if necessary
     if (redirect) {
         dup2(original_stdout, STDOUT_FILENO);
+        close(original_stdout);
     }
-    close(original_stdout);
-}
 
-#endif // CAT_H
+    return 0;
+}

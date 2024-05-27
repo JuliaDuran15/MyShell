@@ -1,4 +1,5 @@
-path 
+
+path /home/VM_nome/pastaCompartilhada/ProjetaoShell/MyShell/externos 
 ls 
 cat README.md 
 cd .. 
