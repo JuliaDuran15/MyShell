@@ -39,16 +39,19 @@ E você pode executá-lo diretamente do terminal:
 Isso abrirá a interface do shell, onde você pode digitar comandos. Por exemplo:
 
 ```bash
+myshell> path /home/Nome_VM/Pásta_compartilhada/ProjetaoShell/MyShell/externos 
+```
+```bash
 myshell> ls -l
 ```
 ```bash
-myshell> cat README.md > output_from_cat.txt
+myshell> ls > output_from_cat.txt
 ```
 ```bash
-myshell> cd /path/to/directory
+myshell> path /usr/bin
 ```
 ```bash
-myshell> path /usr/bin /bin
+myshell> cat shell.c
 ```
 ```bash
 myshell> clear
