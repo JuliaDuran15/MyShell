@@ -1,5 +1,9 @@
-path /home/julia/labs/ProjetaoShell/MyShell/externos 
-ls -l
+
+path /home/VM_nome/pastaCompartilhada/ProjetaoShell/MyShell/externos 
+ls 
 cat README.md 
 cd .. 
-ls -a
+ls -a 
+cd MyShell 
+ls -l 
+cat README.md > output_from_cat.txt 
